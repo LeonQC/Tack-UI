@@ -772,12 +772,6 @@ function useStoreValue() {
       })
       .catch(fail)
 
-  const changePassword = (current: string, next: string): Promise<boolean> =>
-    api
-      .changePassword(current, next)
-      .then(() => true)
-      .catch(fail)
-
   /** Only for things the backend doesn't store (the avatar picture). */
   const updateUser = (id: string, patch: Partial<User>) =>
     setDb((d) => ({ ...d, users: d.users.map((u) => (u.id === id ? { ...u, ...patch } : u)) }))
@@ -832,7 +826,6 @@ function useStoreValue() {
     updateView,
     deleteView,
     updateMe,
-    changePassword,
     updateUser,
   }
 }

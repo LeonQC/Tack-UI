@@ -1,90 +1,96 @@
 import { FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { login, register } from '../data/api'
+import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google'
+import { googleAuth, type GoogleSignup } from '../data/api'
 
 export default function Login() {
   const navigate = useNavigate()
-  const [mode, setMode] = useState<'login' | 'register'>('login')
+  // The Google ID token, kept while a new user picks a username: the same token is sent again to create the account.
+  const [token, setToken] = useState('')
+  const [signup, setSignup] = useState<GoogleSignup | null>(null)
   const [username, setUsername] = useState('')
-  const [email, setEmail] = useState('')
   const [name, setName] = useState('')
-  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const registering = mode === 'register'
 
-  async function onSubmit(e: FormEvent) {
+  async function onGoogle(credential: string | undefined) {
+    if (!credential) return setError('Google sign-in failed')
+    setError('')
+    try {
+      const needed = await googleAuth(credential)
+      if (!needed) return navigate('/', { replace: true })
+      // New here: ask for a username before the account exists.
+      setToken(credential)
+      setSignup(needed)
+      setName(needed.name)
+    } catch (err) {
+      setError((err as Error).message)
+    }
+  }
+
+  async function onCreate(e: FormEvent) {
     e.preventDefault()
     setError('')
     setSubmitting(true)
     try {
-      // Signing up creates the account; then the same credentials log in.
-      if (registering) await register({ username, email, password, ...(name.trim() ? { name: name.trim() } : {}) })
-      await login(username, password)
+      await googleAuth(token, { username, ...(name.trim() ? { name: name.trim() } : {}) })
       navigate('/', { replace: true })
     } catch (err) {
-      setError((err as Error).message)
       setSubmitting(false)
+      // The Google token lasts about an hour; once it's expired, start over with the button.
+      if ((err as Error).message === 'Invalid Google token') {
+        setSignup(null)
+        setError('Google sign-in expired, please sign in again')
+      } else setError((err as Error).message)
     }
   }
 
-  const ready = username && password && (!registering || (email && password.length >= 8))
-
   return (
     <div className="empty-state" style={{ height: '100%' }}>
-      <form
-        onSubmit={onSubmit}
+      <div
         className="card"
         style={{ width: 320, padding: 24, display: 'flex', flexDirection: 'column', gap: 16, textAlign: 'left' }}
       >
-        <h1 className="title-lg" style={{ color: 'var(--text-primary)' }}>{registering ? 'Create account' : 'Log in'}</h1>
-        <label className="field">
-          <span>Username</span>
-          <input
-            className="input"
-            autoFocus
-            autoComplete="username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-        </label>
-        {registering && (
-          <>
+        {signup ? (
+          <form onSubmit={onCreate} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <h1 className="title-lg" style={{ color: 'var(--text-primary)' }}>Create account</h1>
+            <span className="muted">{signup.email}</span>
             <label className="field">
-              <span>Email</span>
-              <input className="input" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <span>Username</span>
+              <input
+                className="input"
+                autoFocus
+                autoComplete="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+              />
             </label>
             <label className="field">
-              <span>Full name (optional)</span>
+              <span>Full name</span>
               <input className="input" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
             </label>
+            {error && <div className="danger-text">{error}</div>}
+            <button className="btn primary" type="submit" disabled={submitting || !username.trim()}>
+              {submitting ? 'Creating…' : 'Create account'}
+            </button>
+            <button type="button" className="btn ghost" onClick={() => setSignup(null)}>
+              Use a different Google account
+            </button>
+          </form>
+        ) : (
+          <>
+            <h1 className="title-lg" style={{ color: 'var(--text-primary)' }}>Log in</h1>
+            <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+              <GoogleLogin
+                onSuccess={(r) => onGoogle(r.credential)}
+                onError={() => setError('Google sign-in failed')}
+                width={272}
+              />
+            </GoogleOAuthProvider>
+            {error && <div className="danger-text">{error}</div>}
           </>
         )}
-        <label className="field">
-          <span>Password{registering && ' (at least 8 characters)'}</span>
-          <input
-            className="input"
-            type="password"
-            autoComplete={registering ? 'new-password' : 'current-password'}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </label>
-        {error && <div className="danger-text">{error}</div>}
-        <button className="btn primary" type="submit" disabled={submitting || !ready}>
-          {submitting ? (registering ? 'Creating…' : 'Logging in…') : registering ? 'Create account' : 'Log in'}
-        </button>
-        <button
-          type="button"
-          className="btn ghost"
-          onClick={() => {
-            setMode(registering ? 'login' : 'register')
-            setError('')
-          }}
-        >
-          {registering ? 'I already have an account' : 'Create an account'}
-        </button>
-      </form>
+      </div>
     </div>
   )
 }
