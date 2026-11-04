@@ -63,26 +63,28 @@ async function errorMessage(res: Response) {
   return `Request failed (${res.status})`
 }
 
-export async function login(username: string, password: string): Promise<void> {
-  const res = await fetch('/api/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
-  })
-  if (res.status === 401) throw new Error('Incorrect username or password')
-  if (!res.ok) throw new Error(await errorMessage(res))
-  const data: { access_token: string; refresh_token: string } = await res.json()
-  localStorage.setItem(TOKEN_KEY, data.access_token)
-  localStorage.setItem(REFRESH_KEY, data.refresh_token)
+/** What /auth/google answers for a Google account with no user yet: ask for a username, then call again with it. */
+export interface GoogleSignup {
+  email: string
+  name: string
 }
 
-export async function register(fields: { username: string; email: string; password: string; name?: string }): Promise<void> {
-  const res = await fetch('/api/auth/register', {
+/**
+ * Log in with the ID token from the Sign in with Google button. For a new user, pass the username (and name)
+ * along with the same token to create the account. Returns the signup details while a username is still needed.
+ */
+export async function googleAuth(token: string, signup?: { username: string; name?: string }): Promise<GoogleSignup | null> {
+  const res = await fetch('/api/auth/google', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(fields),
+    body: JSON.stringify({ token, ...signup }),
   })
   if (!res.ok) throw new Error(await errorMessage(res))
+  const data = await res.json()
+  if (data.signup_required) return { email: data.email, name: data.name }
+  localStorage.setItem(TOKEN_KEY, data.access_token)
+  localStorage.setItem(REFRESH_KEY, data.refresh_token)
+  return null
 }
 
 export async function getMe(): Promise<ApiMe> {
@@ -280,8 +282,6 @@ const key = (k: string) => encodeURIComponent(k)
 
 // Account
 export const updateMe = (fields: { name?: string; username?: string; email?: string }): Promise<ApiUser> => send('/users/me', 'PATCH', fields)
-export const changePassword = (current_password: string, new_password: string): Promise<{ message: string }> =>
-  send('/users/me/password', 'PATCH', { current_password, new_password })
 
 // Workspaces and members
 export const createWorkspace = (fields: { name: string; slug: string }): Promise<ApiWorkspace> => send('/workspaces', 'POST', fields)

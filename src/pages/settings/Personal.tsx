@@ -183,9 +183,7 @@ export function ApiKeysSection({ title = 'Personal API keys' }: { title?: string
 /* ---------- Security & access ---------- */
 
 export function SecurityAccess() {
-  const { db, setDb, toast, changePassword } = useStore()
-  const [pwOpen, setPwOpen] = useState(false)
-  const [pw, setPw] = useState({ current: '', next: '' })
+  const { db, setDb, toast } = useStore()
   const deviceIcon = (d: string) => (d.includes('iPhone') ? <Smartphone size={16} /> : d.includes('Desktop') ? <Laptop size={16} /> : <Monitor size={16} />)
 
   return (
@@ -194,9 +192,6 @@ export function SecurityAccess() {
       <section className="settings-section" style={{ marginTop: 0 }}>
         <h3>Sign-in methods</h3>
         <div className="card" style={{ padding: '0 16px' }}>
-          <SettingsRow title="Password" desc="Change the password you log in with.">
-            <button className="btn sm" onClick={() => setPwOpen(true)}>Change password</button>
-          </SettingsRow>
           <SettingsRow title="Passkeys" desc="Sign in with your fingerprint, face or a security key.">
             <button className="btn sm" onClick={() => toast('Passkey registration is not part of this demo')}>
               <KeyRound size={14} /> Add passkey
@@ -256,39 +251,6 @@ export function SecurityAccess() {
       </section>
 
       <ApiKeysSection />
-
-      {pwOpen && (
-        <Modal onClose={() => setPwOpen(false)} width={420}>
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault()
-              if (pw.next.length < 8) return
-              // A wrong current password comes back as a toast; the dialog stays open.
-              if (!(await changePassword(pw.current, pw.next))) return
-              setPwOpen(false)
-              setPw({ current: '', next: '' })
-              toast('Password changed')
-            }}
-          >
-            <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <h2 className="title-md">Change password</h2>
-              <label className="field">
-                <span>Current password</span>
-                <input className="input" type="password" autoFocus value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} />
-              </label>
-              <label className="field">
-                <span>New password</span>
-                <input className="input" type="password" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} />
-              </label>
-              {pw.next && pw.next.length < 8 && <span className="danger-text label">At least 8 characters.</span>}
-            </div>
-            <div className="modal-footer">
-              <button type="button" className="btn" onClick={() => setPwOpen(false)}>Cancel</button>
-              <button type="submit" className="btn primary" disabled={!pw.current || pw.next.length < 8}>Update password</button>
-            </div>
-          </form>
-        </Modal>
-      )}
     </div>
   )
 }
