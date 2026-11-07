@@ -27,3 +27,5 @@ On a right-clicked issue: `S` status, `P` priority, `A` assignee, `⇧D` due dat
 
 - AI summaries come from a deterministic summarizer in `src/components/AI.tsx` (`summarizeIssues`, `summarizeIssue`), with fake latency. Replace them with a backend LLM call that returns the same `Bullet[]` shape. Add `?aiError=1` to a URL to see the error state.
 - Auth, workspace switching, passkeys, desktop download, and workspace deletion are UI-only (they show a toast).
+
+  #  testing message 11111
